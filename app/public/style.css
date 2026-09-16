@@ -13,3 +13,16 @@ li { border: 1px solid #8884; border-radius: 8px; padding: .7rem .9rem; display:
 li .grow { flex: 1; }
 li strong { display: block; }
 li small { opacity: .65; }
+h2 { font-size: 1.05rem; margin: 1rem 0 .4rem; }
+
+/* Touch targets: at least 44px tall (WCAG 2.5.5 / 2.5.8). */
+button { min-height: 2.75rem; min-width: 2.75rem; }
+button:focus-visible { outline: 3px solid Highlight; outline-offset: 2px; }
+
+.views { display: inline-flex; gap: .4rem; }
+.views button[aria-pressed="true"] { background: CanvasText; color: Canvas; border-color: CanvasText; font-weight: 600; }
+
+li .actions { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; }
+
+/* Error text keeps the page's text colour for contrast; the border marks it. */
+.error { border: 2px solid #c62828; border-radius: 8px; padding: .6rem .9rem; font-weight: 600; }

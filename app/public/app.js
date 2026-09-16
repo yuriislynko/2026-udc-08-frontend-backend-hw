@@ -5,15 +5,88 @@
 const userSelect = document.querySelector("#user");
 const list = document.querySelector("#notes");
 const empty = document.querySelector("#empty");
+const heading = document.querySelector("#list-heading");
 const form = document.querySelector("#new-note");
+const viewButtons = document.querySelectorAll("[data-view]");
+const errorBox = document.querySelector("#error");
+
+const VIEWS = {
+  active: { heading: "Активні нотатки", empty: "Нотаток поки немає." },
+  archived: {
+    heading: "Архів",
+    empty: "В архіві порожньо. Архівовані нотатки з'являться тут.",
+  },
+};
+
+let view = "active";
 
 function headers() {
   return { "content-type": "application/json", "x-user-id": userSelect.value };
 }
 
+// Shows a message in the page's alert region; an empty message hides it.
+function showError(message = "") {
+  errorBox.textContent = message;
+  errorBox.hidden = !message;
+}
+
+// fetch() only rejects on a network failure; a 4xx/5xx still resolves. Turn
+// both into one thrown error so every caller handles them the same way.
+async function api(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(path, { ...options, headers: headers() });
+  } catch {
+    throw new Error("Немає з'єднання із сервером. Перевірте мережу й спробуйте ще раз.");
+  }
+  if (!res.ok) {
+    throw new Error(`Сервер відповів помилкою (${res.status}). Спробуйте ще раз.`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// Runs a change, then reloads the list. A failed change is reported and the
+// list is still reloaded, so the page shows what the server actually has.
+async function mutate(action, failure) {
+  try {
+    await action();
+  } catch (err) {
+    await load();
+    showError(`${failure} ${err.message}`);
+    return false;
+  }
+  await load();
+  return true;
+}
+
+function setView(next) {
+  view = next;
+  for (const b of viewButtons) {
+    b.setAttribute("aria-pressed", String(b.dataset.view === view));
+  }
+  heading.textContent = VIEWS[view].heading;
+  load();
+}
+
+function setArchived(note, archived) {
+  return mutate(
+    () => api(`/api/notes/${note.id}`, { method: "PATCH", body: JSON.stringify({ archived }) }),
+    "Не вдалося змінити нотатку.",
+  );
+}
+
 async function load() {
-  const res = await fetch("/api/notes", { headers: headers() });
-  const notes = await res.json();
+  const archived = view === "archived";
+  let notes;
+  try {
+    notes = await api(`/api/notes?archived=${archived}`);
+  } catch (err) {
+    list.replaceChildren();
+    empty.hidden = true;
+    showError(`Не вдалося завантажити нотатки. ${err.message}`);
+    return;
+  }
+  showError();
 
   list.replaceChildren(
     ...notes.map((n) => {
@@ -29,17 +102,31 @@ async function load() {
       when.textContent = n.created_at;
       grow.append(title, body, document.createElement("br"), when);
 
-      const del = document.createElement("button");
-      del.textContent = "Видалити";
-      del.addEventListener("click", async () => {
-        await fetch(`/api/notes/${n.id}`, { method: "DELETE", headers: headers() });
-        load();
-      });
+      const actions = document.createElement("div");
+      actions.className = "actions";
 
-      li.append(grow, del);
+      // Visible text says what the button does; aria-label adds which note,
+      // so a screen reader user hearing a list of buttons can tell them apart.
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.textContent = archived ? "Повернути з архіву" : "Архівувати";
+      toggle.setAttribute("aria-label", `${toggle.textContent}: ${n.title}`);
+      toggle.addEventListener("click", () => setArchived(n, !archived));
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "Видалити";
+      del.setAttribute("aria-label", `Видалити: ${n.title}`);
+      del.addEventListener("click", () =>
+        mutate(() => api(`/api/notes/${n.id}`, { method: "DELETE" }), "Не вдалося видалити нотатку."),
+      );
+
+      actions.append(toggle, del);
+      li.append(grow, actions);
       return li;
     }),
   );
+  empty.textContent = VIEWS[view].empty;
   empty.hidden = notes.length > 0;
 }
 
@@ -47,15 +134,24 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = document.querySelector("#title");
   const body = document.querySelector("#body");
-  await fetch("/api/notes", {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({ title: title.value, body: body.value }),
-  });
+  try {
+    await api("/api/notes", {
+      method: "POST",
+      body: JSON.stringify({ title: title.value, body: body.value }),
+    });
+  } catch (err) {
+    // Keep what the user typed so they can retry.
+    showError(`Не вдалося додати нотатку. ${err.message}`);
+    return;
+  }
   title.value = "";
   body.value = "";
-  load();
+  // A new note is active, so show the list it landed in.
+  setView("active");
 });
 
+for (const b of viewButtons) {
+  b.addEventListener("click", () => setView(b.dataset.view));
+}
 userSelect.addEventListener("change", load);
 load();
