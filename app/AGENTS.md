@@ -4,9 +4,12 @@ Guidance for an Agentic IDE working inside `app/`.
 
 ## Stack
 
-- Node 22+, ESM (`"type": "module"`)
+- Node 22+ (`engines` in `package.json`; recommended version in root
+  `.nvmrc`), ESM (`"type": "module"`)
 - Express for the HTTP layer
-- SQLite via `better-sqlite3` (synchronous API — no await on queries)
+- SQLite via `better-sqlite3` (synchronous API — no await on queries).
+  Pinned to `^13.0.3`: v11 has no prebuilt binary for Node 26 and its
+  source build fails there. Do not downgrade.
 - vitest + supertest for tests
 - The UI is plain HTML/CSS/JS served statically. **No build step. No framework.**
 
