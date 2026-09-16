@@ -1,4 +1,10 @@
-:root { color-scheme: light dark; }
+:root {
+  color-scheme: light dark;
+  /* Contrast against the default page background: borders at least 3:1
+     (WCAG 1.4.11), muted text at least 4.5:1 (WCAG 1.4.3). */
+  --border: light-dark(#767676, #8f8f8f);
+  --muted: light-dark(#595959, #b3b3b3);
+}
 body {
   font: 15px/1.5 system-ui, sans-serif;
   max-width: 680px; margin: 2rem auto; padding: 0 1rem;
@@ -6,13 +12,13 @@ body {
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 h1 { font-size: 1.4rem; margin: 0; }
 form { display: flex; gap: .5rem; margin: 1.2rem 0; }
-input { flex: 1; padding: .5rem; border: 1px solid #8884; border-radius: 6px; font: inherit; }
-button { padding: .5rem .9rem; border: 1px solid #8884; border-radius: 6px; background: #8881; font: inherit; cursor: pointer; }
+input { flex: 1; padding: .5rem; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+button { padding: .5rem .9rem; border: 1px solid var(--border); border-radius: 6px; background: #8881; font: inherit; cursor: pointer; }
 ul { list-style: none; padding: 0; display: grid; gap: .6rem; }
-li { border: 1px solid #8884; border-radius: 8px; padding: .7rem .9rem; display: flex; gap: 1rem; align-items: flex-start; }
+li { border: 1px solid var(--border); border-radius: 8px; padding: .7rem .9rem; display: flex; gap: 1rem; align-items: flex-start; }
 li .grow { flex: 1; }
 li strong { display: block; }
-li small { opacity: .65; }
+li small { color: var(--muted); }
 h2 { font-size: 1.05rem; margin: 1rem 0 .4rem; }
 
 /* Touch targets: at least 44px tall (WCAG 2.5.5 / 2.5.8). */
@@ -25,4 +31,8 @@ button:focus-visible { outline: 3px solid Highlight; outline-offset: 2px; }
 li .actions { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; }
 
 /* Error text keeps the page's text colour for contrast; the border marks it. */
-.error { border: 2px solid #c62828; border-radius: 8px; padding: .6rem .9rem; font-weight: 600; }
+.error { border: 2px solid light-dark(#c62828, #ef5350); border-radius: 8px; padding: .6rem .9rem; font-weight: 600; }
+
+button:disabled { cursor: progress; opacity: .6; }
+h2:focus { outline: none; }
+h2:focus-visible { outline: 3px solid Highlight; outline-offset: 2px; }

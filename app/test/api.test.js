@@ -76,6 +76,12 @@ describe("DELETE /api/notes/:id", () => {
     const taras = await asTaras(request(app).get("/api/notes")).expect(200);
     expect(taras.body).toHaveLength(1);
   });
+
+  it("rejects an invalid note id", async () => {
+    for (const id of ["abc", "0", "-1", "1.5"]) {
+      await asOlya(request(app).delete(`/api/notes/${id}`)).expect(400);
+    }
+  });
 });
 
 describe("PATCH /api/notes/:id (archive)", () => {

@@ -19,6 +19,9 @@ const VIEWS = {
 };
 
 let view = "active";
+// Each load() takes the next number; a response that arrives after a newer
+// load() started is stale (another user or view) and is dropped.
+let loadSeq = 0;
 
 function headers() {
   return { "content-type": "application/json", "x-user-id": userSelect.value };
@@ -45,18 +48,25 @@ async function api(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-// Runs a change, then reloads the list. A failed change is reported and the
-// list is still reloaded, so the page shows what the server actually has.
-async function mutate(action, failure) {
+// Runs a change for one list item, then reloads the list. The item's buttons
+// are disabled while the request is in flight, so a double click sends one
+// request. A failed change is reported and the list is still reloaded, so the
+// page shows what the server actually has. The re-rendered list drops the
+// focused button, so focus moves to the list heading instead of the page top.
+async function mutate(item, action, failure) {
+  const buttons = item.querySelectorAll("button");
+  for (const b of buttons) b.disabled = true;
+  let error = null;
   try {
     await action();
   } catch (err) {
-    await load();
-    showError(`${failure} ${err.message}`);
-    return false;
+    error = err;
+  } finally {
+    for (const b of buttons) b.disabled = false;
   }
   await load();
-  return true;
+  if (error) showError(`${failure} ${error.message}`);
+  if (!list.contains(document.activeElement)) heading.focus();
 }
 
 function setView(next) {
@@ -68,24 +78,28 @@ function setView(next) {
   load();
 }
 
-function setArchived(note, archived) {
+function setArchived(item, note, archived) {
   return mutate(
+    item,
     () => api(`/api/notes/${note.id}`, { method: "PATCH", body: JSON.stringify({ archived }) }),
     "Не вдалося змінити нотатку.",
   );
 }
 
 async function load() {
+  const seq = ++loadSeq;
   const archived = view === "archived";
   let notes;
   try {
     notes = await api(`/api/notes?archived=${archived}`);
   } catch (err) {
+    if (seq !== loadSeq) return;
     list.replaceChildren();
     empty.hidden = true;
     showError(`Не вдалося завантажити нотатки. ${err.message}`);
     return;
   }
+  if (seq !== loadSeq) return;
   showError();
 
   list.replaceChildren(
@@ -111,14 +125,18 @@ async function load() {
       toggle.type = "button";
       toggle.textContent = archived ? "Повернути з архіву" : "Архівувати";
       toggle.setAttribute("aria-label", `${toggle.textContent}: ${n.title}`);
-      toggle.addEventListener("click", () => setArchived(n, !archived));
+      toggle.addEventListener("click", () => setArchived(li, n, !archived));
 
       const del = document.createElement("button");
       del.type = "button";
       del.textContent = "Видалити";
       del.setAttribute("aria-label", `Видалити: ${n.title}`);
       del.addEventListener("click", () =>
-        mutate(() => api(`/api/notes/${n.id}`, { method: "DELETE" }), "Не вдалося видалити нотатку."),
+        mutate(
+          li,
+          () => api(`/api/notes/${n.id}`, { method: "DELETE" }),
+          "Не вдалося видалити нотатку.",
+        ),
       );
 
       actions.append(toggle, del);
@@ -134,6 +152,9 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = document.querySelector("#title");
   const body = document.querySelector("#body");
+  const submit = form.querySelector("button[type=submit]");
+  // Disabled while saving, so a double click does not create two notes.
+  submit.disabled = true;
   try {
     await api("/api/notes", {
       method: "POST",
@@ -143,6 +164,8 @@ form.addEventListener("submit", async (e) => {
     // Keep what the user typed so they can retry.
     showError(`Не вдалося додати нотатку. ${err.message}`);
     return;
+  } finally {
+    submit.disabled = false;
   }
   title.value = "";
   body.value = "";

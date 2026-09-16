@@ -21,6 +21,13 @@ function currentUser(req, res, next) {
   next();
 }
 
+// Route ids are positive integers; anything else is a bad request, not a
+// lookup that happens to find nothing.
+function parseId(raw) {
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 // SQLite stores the flag as 0/1; the API speaks booleans.
 function toNote(row) {
   return { ...row, archived: row.archived === 1 };
@@ -76,10 +83,8 @@ export function createApp(db) {
   // of the UPDATE itself, so someone else's note is indistinguishable from a
   // missing one.
   app.patch("/api/notes/:id", (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({ error: "invalid note id" });
-    }
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid note id" });
     const archived = req.body?.archived;
     if (typeof archived !== "boolean") {
       return res.status(400).json({ error: "archived must be a boolean" });
@@ -98,9 +103,11 @@ export function createApp(db) {
 
   // Delete one of the caller's own notes.
   app.delete("/api/notes/:id", (req, res) => {
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid note id" });
     const info = db
       .prepare("DELETE FROM notes WHERE id = ? AND user_id = ?")
-      .run(Number(req.params.id), req.userId);
+      .run(id, req.userId);
     if (info.changes === 0) return res.status(404).json({ error: "not found" });
     res.status(204).end();
   });
