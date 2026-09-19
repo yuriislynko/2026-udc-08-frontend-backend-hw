@@ -123,9 +123,9 @@ async function load() {
       // so a screen reader user hearing a list of buttons can tell them apart.
       const toggle = document.createElement("button");
       toggle.type = "button";
-      toggle.textContent = archived ? "Повернути з архіву" : "Архівувати";
+      toggle.textContent = n.archived ? "Повернути з архіву" : "Архівувати";
       toggle.setAttribute("aria-label", `${toggle.textContent}: ${n.title}`);
-      toggle.addEventListener("click", () => setArchived(li, n, !archived));
+      toggle.addEventListener("click", () => setArchived(li, n, !n.archived));
 
       const del = document.createElement("button");
       del.type = "button";
