@@ -56,11 +56,28 @@ describe("POST /api/notes", () => {
 describe("GET /api/notes/:id", () => {
   it("returns the caller's own note", async () => {
     const res = await asOlya(request(app).get("/api/notes/1")).expect(200);
-    expect(res.body.title).toBe("Список покупок");
+    expect(res.body).toEqual({
+      id: 1,
+      title: "Список покупок",
+      body: "хліб, кава",
+      created_at: expect.any(String),
+      archived: false,
+    });
   });
 
   it("404s for a note that does not exist", async () => {
     await asOlya(request(app).get("/api/notes/999")).expect(404);
+  });
+
+  it("will not read someone else's note", async () => {
+    const res = await asOlya(request(app).get("/api/notes/3")).expect(404);
+    expect(res.body).toEqual({ error: "not found" });
+  });
+
+  it("rejects an invalid note id", async () => {
+    for (const id of ["abc", "0", "-1", "1.5", "0x1", "1e0"]) {
+      await asOlya(request(app).get(`/api/notes/${id}`)).expect(400);
+    }
   });
 });
 
@@ -78,7 +95,7 @@ describe("DELETE /api/notes/:id", () => {
   });
 
   it("rejects an invalid note id", async () => {
-    for (const id of ["abc", "0", "-1", "1.5"]) {
+    for (const id of ["abc", "0", "-1", "1.5", "0x1", "1e0"]) {
       await asOlya(request(app).delete(`/api/notes/${id}`)).expect(400);
     }
   });
@@ -130,7 +147,9 @@ describe("PATCH /api/notes/:id (archive)", () => {
   });
 
   it("rejects an invalid note id", async () => {
-    await asOlya(request(app).patch("/api/notes/abc")).send({ archived: true }).expect(400);
+    for (const id of ["abc", "0", "-1", "1.5", "0x1", "1e0"]) {
+      await asOlya(request(app).patch(`/api/notes/${id}`)).send({ archived: true }).expect(400);
+    }
   });
 
   it("404s for a note that does not exist", async () => {

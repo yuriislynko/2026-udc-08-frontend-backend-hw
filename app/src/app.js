@@ -21,11 +21,13 @@ function currentUser(req, res, next) {
   next();
 }
 
-// Route ids are positive integers; anything else is a bad request, not a
-// lookup that happens to find nothing.
+// Route ids are positive integers written as plain digits; anything else is a
+// bad request, not a lookup that happens to find nothing. The pattern check
+// comes first because Number() also accepts forms like "0x1" and "1e0".
 function parseId(raw) {
+  if (!/^[1-9]\d*$/.test(raw)) return null;
   const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return Number.isSafeInteger(id) ? id : null;
 }
 
 // SQLite stores the flag as 0/1; the API speaks booleans.
@@ -55,11 +57,14 @@ export function createApp(db) {
     res.json(rows.map(toNote));
   });
 
-  // Read one note.
+  // Read one of the caller's own notes. The owner check is part of the query,
+  // so someone else's note is indistinguishable from a missing one.
   app.get("/api/notes/:id", (req, res) => {
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid note id" });
     const note = db
-      .prepare("SELECT id, user_id, title, body, created_at, archived FROM notes WHERE id = ?")
-      .get(Number(req.params.id));
+      .prepare("SELECT id, title, body, created_at, archived FROM notes WHERE id = ? AND user_id = ?")
+      .get(id, req.userId);
     if (!note) return res.status(404).json({ error: "not found" });
     res.json(toNote(note));
   });
