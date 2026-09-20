@@ -90,7 +90,9 @@ export function createApp(db) {
 
   // Archive or restore one of the caller's own notes. The owner check is part
   // of the UPDATE itself, so someone else's note is indistinguishable from a
-  // missing one.
+  // missing one. RETURNING reads the new row inside the same statement: a
+  // separate SELECT afterwards could find nothing if another connection
+  // deleted the row in between, and would answer 500 instead of 404.
   app.patch("/api/notes/:id", (req, res) => {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "invalid note id" });
@@ -99,14 +101,13 @@ export function createApp(db) {
       return res.status(400).json({ error: "archived must be a boolean" });
     }
 
-    const info = db
-      .prepare("UPDATE notes SET archived = ? WHERE id = ? AND user_id = ?")
-      .run(archived ? 1 : 0, id, req.userId);
-    if (info.changes === 0) return res.status(404).json({ error: "not found" });
-
     const updated = db
-      .prepare("SELECT id, title, body, created_at, archived FROM notes WHERE id = ? AND user_id = ?")
-      .get(id, req.userId);
+      .prepare(
+        "UPDATE notes SET archived = ? WHERE id = ? AND user_id = ? RETURNING id, title, body, created_at, archived",
+      )
+      .get(archived ? 1 : 0, id, req.userId);
+    if (!updated) return res.status(404).json({ error: "not found" });
+
     res.json(toNote(updated));
   });
 
