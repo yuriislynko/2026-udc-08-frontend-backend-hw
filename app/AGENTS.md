@@ -10,16 +10,24 @@ Guidance for an Agentic IDE working inside `app/`.
 - SQLite via `better-sqlite3` (synchronous API — no await on queries).
   Pinned to `^13.0.3`: v11 has no prebuilt binary for Node 26 and its
   source build fails there. Do not downgrade.
-- vitest + supertest for tests
+- vitest + supertest for the API tests; vitest + jsdom for the UI tests
+  (`test/ui.test.js` runs `public/app.js` against a real server, so the UI has
+  regression cover without a browser in the loop). jsdom is a devDependency —
+  it never reaches the application.
 - The UI is plain HTML/CSS/JS served statically. **No build step. No framework.**
 
 ## Commands
 
 ```bash
 npm install
-npm test        # vitest run
-npm run dev     # http://localhost:3080 (writes notes.db)
+npm test              # vitest run (API, authorization and UI suites)
+npm run dev           # http://localhost:3080 (writes notes.db)
+npm run test:mutations  # break the app on purpose, check the authz suite notices
+npm run check:a11y      # drive the UI in headless Chrome, dump its accessibility tree
 ```
+
+`test:mutations` and `check:a11y` are evidence, not gates: they are not part of
+`npm test`. The first needs no browser; the second needs Chrome installed.
 
 ## Architecture
 

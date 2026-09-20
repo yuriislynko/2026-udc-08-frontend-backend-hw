@@ -49,9 +49,10 @@ walkthrough.
 ## 3. The first UI ignored server errors
 
 - **Asked:** Task A — archive / restore control and an archive view.
-- **Produced:** the first version of `app/public/app.js` (a local commit that
-  was rewritten before anything was pushed, so it is not on the branch).
-  `load()` read the response without checking it:
+- **Produced:** the first version of `app/public/app.js`. It was rewritten
+  before anything was pushed, so it is not in the repository history: the
+  evidence for this entry is the Claude Code session log from 2026-09-16, not a
+  commit. What it contained — `load()` read the response without checking it:
 
   ```js
   const res = await fetch(`/api/notes?archived=${archived}`, { headers: headers() });
@@ -61,7 +62,10 @@ walkthrough.
   A failed archive showed a browser `alert()`, delete and create did not check
   the response at all, and a network failure was unhandled. A `4xx`/`5xx` left
   the list silently broken.
-- **Noticed by:** review pass on 2026-09-16.
+- **Noticed by:** review pass on 2026-09-16. The defect itself is reproducible
+  on the current code without the session log: `npm run test:mutations` applies
+  it as the `HTTP errors ignored` mutation, which strips the status check back
+  out of `public/app.js`.
 - **Fixed:** one `api()` helper in `app/public/app.js` turns HTTP errors and
   network failures into a thrown error; messages appear in an on-page
   `role="alert"` region; a failed create keeps the typed text; the list reloads
@@ -124,7 +128,30 @@ walkthrough.
   as out of scope, so the agent treated the middleware as given and only
   checked what happens after it.
 
-## 7. Process mistakes
+## 7. The first UI test suite was green but could not fail
+
+- **Asked:** cover the UI with automated tests, so a regression like #5 is
+  caught by a command and not by a reader.
+- **Produced:** `app/test/ui.test.js` — 10 tests, green on the first run. Three
+  of them asserted nothing a broken app could violate: the user-switch test, the
+  "the change reaches the server" test, and the test for a failed request. The
+  failure test rejected `fetch` with a network error, so it passed whether or
+  not the page checked the HTTP status — the exact defect from #3 would have
+  slipped through the suite written to prevent it.
+- **Noticed by:** the mutation harness, extended to `public/app.js` in the same
+  session. It reported `HTTP errors ignored 0/10 — killed nothing` and named the
+  three tests no mutation could kill. Reading the tests did not reveal this;
+  running them against a broken copy did.
+- **Fixed:** a test that answers `500` from the server instead of failing the
+  connection, and four more UI mutations (`change never sent`, `change failure
+  swallowed`, `user switch ignored`, `HTTP errors ignored`). All 11 UI tests now
+  fail on at least one mutation: `npm run test:mutations`.
+- **Why the agent did it (hypothesis):** the tests were written against the code
+  as it is, so each one described the current behaviour accurately. Nothing in
+  writing them asks the question the harness asks — which broken version of this
+  app would still pass?
+
+## 8. Process mistakes
 
 - **Task B work committed under a Task A title.** The first local commit,
   "Task A: archive / restore notes in the UI", also contained the schema change
@@ -167,9 +194,14 @@ walkthrough.
   scratch copy turns 9 tests red, including `keeps someone else's archived note
   out of the caller's archive`.
 - **Browser.** Checked by hand in Chrome on 2026-09-16: archive, restore, the
-  empty archive, switching users. The accessibility tree was captured again
-  with headless Chrome over the DevTools protocol on 2026-09-19, as Оля
-  (excerpt, relevant nodes only):
+  empty archive, switching users. That check is now a command rather than a
+  memory: `cd app && npm run check:a11y` drives headless Chrome through the same
+  flow, dumps the accessibility tree at each step, and fails if a control has no
+  accessible name, is smaller than 44x44 px, or misses its contrast threshold
+  (`app/scripts/a11y-check.mjs`). Measured on 2026-09-20: borders `4.54:1` light
+  and `5.79:1` dark against a `3:1` minimum, timestamp text `7:1` and `8.93:1`
+  against `4.5:1`, every control `109x44` or larger. Tree as Оля (excerpt,
+  relevant nodes only):
 
   ```text
   1. Active view
