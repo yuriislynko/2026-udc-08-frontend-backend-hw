@@ -111,6 +111,23 @@ describe("the notes list", () => {
   });
 });
 
+describe("the create form", () => {
+  it("names each field with a label, not with placeholder text alone", () => {
+    // A placeholder is a hint, not a name: it disappears as soon as the field
+    // has text, and it is not reliably announced. Every control the user types
+    // into has to carry a name that survives being filled in.
+    const controls = [...document.querySelectorAll("#new-note input, #user")];
+    expect(controls.length).toBe(3);
+
+    for (const control of controls) {
+      const fromLabel = [...control.labels].map((l) => l.textContent.trim()).join(" ");
+      const name = control.getAttribute("aria-label") ?? fromLabel;
+      expect(name, control.id).toBeTruthy();
+      expect(name, control.id).not.toBe(control.getAttribute("placeholder"));
+    }
+  });
+});
+
 describe("archiving", () => {
   it("moves a note to the archive and offers to restore it there", async () => {
     await boot();

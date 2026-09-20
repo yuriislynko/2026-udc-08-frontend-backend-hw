@@ -18,8 +18,13 @@
       </label>
     </header>
 
+    <!-- The labels are the fields' names; the placeholder is only a hint and
+         disappears as soon as the user types. They are hidden from sight, not
+         from the accessibility tree. -->
     <form id="new-note">
+      <label class="visually-hidden" for="title">Заголовок нотатки</label>
       <input id="title" placeholder="Заголовок" required />
+      <label class="visually-hidden" for="body">Текст нотатки</label>
       <input id="body" placeholder="Текст" />
       <button type="submit">Додати</button>
     </form>

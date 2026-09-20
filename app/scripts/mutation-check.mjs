@@ -169,6 +169,13 @@ const mutations = [
   },
   {
     suite: "ui",
+    file: "public/index.html",
+    name: "fields named by placeholder only",
+    why: "the create form loses its labels, so each field is named by a placeholder that vanishes once it is filled in",
+    apply: (src) => src.replace(/\n\s*<label class="visually-hidden"[\s\S]*?<\/label>/g, ""),
+  },
+  {
+    suite: "ui",
     file: "public/app.js",
     name: "typed text discarded",
     why: "a failed create clears the form, so the user retypes what the server never took",

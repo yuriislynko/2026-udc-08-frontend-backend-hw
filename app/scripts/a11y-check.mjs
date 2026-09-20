@@ -9,7 +9,8 @@
  * Chrome through the archive flow, dumps the accessibility tree at each step
  * and measures what jsdom cannot:
  *
- *   - every control has an accessible name;
+ *   - every control has an accessible name, and a field the user types into
+ *     is named by a label rather than by its placeholder;
  *   - every control is at least 44x44 CSS px (WCAG 2.5.5);
  *   - borders reach 3:1 against the page background (WCAG 1.4.11) and text
  *     reaches 4.5:1 (WCAG 1.4.3), in both the light and the dark scheme.
@@ -163,12 +164,49 @@ async function snapshot(cdp, session, label) {
       .join(" ");
     lines.push(`  ${role}${name ? ` "${name}"` : ""}${states ? ` ${states}` : ""}`);
 
-    if (role === "button" && !name) {
-      problems.push(`${label}: a button has no accessible name`);
+    if (["button", "textbox", "combobox"].includes(role) && !name) {
+      problems.push(`${label}: a ${role} has no accessible name`);
     }
   }
   console.log(`\n${label}`);
   console.log(lines.join("\n"));
+}
+
+/**
+ * The name of a field the user types into. A placeholder is a hint: it is gone
+ * as soon as the field has text, and the accessibility tree falls back to it
+ * only because nothing better was provided. Each field has to be named by a
+ * label or an aria-label instead, so the check reads the DOM rather than the
+ * computed name — the computed name cannot say where it came from.
+ */
+async function checkFieldNames(cdp, session, label) {
+  const fields = await evaluate(
+    cdp,
+    session,
+    `[...document.querySelectorAll("input, select, textarea")].map((el) => ({
+       id: el.id,
+       aria: el.getAttribute("aria-label"),
+       label: [...el.labels].map((l) => {
+         // A label that wraps its control also contains the control's own text
+         // (the options of a select); that text is not part of the name.
+         const text = l.cloneNode(true);
+         for (const nested of text.querySelectorAll("input, select, textarea")) nested.remove();
+         return text.textContent.replace(/\s+/g, " ").trim();
+       }).join(" "),
+       placeholder: el.getAttribute("placeholder"),
+     }))`,
+  );
+  for (const field of fields) {
+    const name = field.aria ?? field.label;
+    if (!name) {
+      problems.push(`${label}: field "${field.id}" has no label, only a placeholder`);
+    } else if (field.placeholder && name === field.placeholder) {
+      problems.push(`${label}: field "${field.id}" is named by its placeholder`);
+    }
+  }
+  console.log(
+    `  field names: ${fields.map((f) => `${f.id} "${f.aria ?? f.label}"`).join(", ")}`,
+  );
 }
 
 /** Measures every control the user can hit in the current state. */
@@ -269,6 +307,7 @@ try {
   await waitFor(cdp, sessionId, listed(2), "the active list");
   await snapshot(cdp, sessionId, "1. active view, two notes");
   await measureTargets(cdp, sessionId, "active view");
+  await checkFieldNames(cdp, sessionId, "active view");
 
   await evaluate(cdp, sessionId, click("#notes li .actions button"));
   await waitFor(cdp, sessionId, listed(1), "the archived note to leave the active list");

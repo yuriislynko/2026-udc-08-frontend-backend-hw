@@ -151,7 +151,38 @@ walkthrough.
   writing them asks the question the harness asks — which broken version of this
   app would still pass?
 
-## 8. Process mistakes
+## 8. The create form named its fields with a placeholder
+
+- **Asked:** Task A — an accessible archive UI, and then an automated check
+  that measures the accessibility claims instead of asserting them in prose.
+- **Produced:** the seeded `app/public/index.html` named the two fields of the
+  create form with `placeholder="Заголовок"` and `placeholder="Текст"` and
+  nothing else. The agent reviewed that form, wrote 11 UI tests around it and a
+  browser check for it, and left the placeholders as the names. A placeholder
+  is a hint: it disappears as soon as the field has text, so a user who is
+  interrupted mid-form has no way to be told what the field is (WCAG 3.3.2).
+- **Noticed by:** CodeRabbit on pull request #11, after the branch was pushed:
+  "The core note-creation form lacks persistent programmatic labels, making it
+  harder for assistive-technology users to identify fields." Neither the UI
+  suite nor `npm run check:a11y` had anything to say about it — the browser
+  check asserted accessible names for `button` nodes only, and Chrome computes
+  a name for a `textbox` from its placeholder, so the field appeared named in
+  the tree that was printed as evidence.
+- **Fixed:** a `<label for>` per field, visually hidden and present in the
+  accessibility tree (`visually-hidden` in `app/public/style.css`). The check
+  that missed it now reads the DOM rather than the computed name — it fails
+  when a field has no label, and separately when its name equals its own
+  placeholder — and `textbox` and `combobox` nodes are held to the same
+  accessible-name rule as buttons. A test (`names each field with a label, not
+  with placeholder text alone`) and a mutation (`fields named by placeholder
+  only`, which deletes the labels again) keep it that way.
+- **Why the agent did it (hypothesis):** the fields were seeded code that the
+  task did not ask it to touch, and the accessibility work went to the controls
+  it added itself. Its own check then confirmed the result, because the check
+  asked the browser for a name and the browser answered with the placeholder —
+  the measurement agreed with the mistake.
+
+## 9. Process mistakes
 
 - **Task B work committed under a Task A title.** The first local commit,
   "Task A: archive / restore notes in the UI", also contained the schema change
@@ -198,7 +229,8 @@ walkthrough.
   memory: `cd app && npm run check:a11y` drives headless Chrome through the same
   flow, dumps the accessibility tree at each step, and fails if a control has no
   accessible name, is smaller than 44x44 px, or misses its contrast threshold
-  (`app/scripts/a11y-check.mjs`). Measured on 2026-09-20: borders `4.54:1` light
+  (`app/scripts/a11y-check.mjs`), or is named by its own placeholder rather
+  than by a label. Measured on 2026-09-20: borders `4.54:1` light
   and `5.79:1` dark against a `3:1` minimum, timestamp text `7:1` and `8.93:1`
   against `4.5:1`, every control `109x44` or larger. Tree as Оля (excerpt,
   relevant nodes only):

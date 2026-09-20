@@ -3,7 +3,7 @@
 **What was done:** every endpoint under `/api` is walked by a caller who does
 not own the record, and by a caller who is not a user at all. The suite lives
 in `app/test/authz.test.js` (30 tests) and runs with the rest: `cd app &&
-npm test` — 65 tests, green.
+npm test` — 66 tests, green.
 
 Seed data: notes 1 and 2 belong to Оля (id 1), note 3 to Тарас (id 2). Note 3
 carries an obvious marker in its body (`пароль від сейфа: 1234`), so a leak is
@@ -162,30 +162,36 @@ Five things the sweep made explicit that were not obvious beforehand:
 
 The mutation check is not specific to authorization: it takes a suite, a file to
 break and a list of breakages. After this suite was done, `public/app.js` was
-added as a second target so the Task A suite (`app/test/ui.test.js`, 11 tests)
+added as a second target so the Task A suite (`app/test/ui.test.js`, 12 tests)
 has to prove itself the same way.
 
 | Mutation | What it breaks | Killed |
 |---|---|---|
-| label from the view | the archive control is labelled from the open view, not from its note | 1 / 11 |
-| no accessible name | the control keeps its visible text, loses the `aria-label` naming its note | 2 / 11 |
-| HTTP errors ignored | the response status is not checked, so a `500` renders as data | 1 / 11 |
-| change never sent | the page updates itself and never asks the server to store it | 4 / 11 |
-| change failure swallowed | a refused change leaves no message on the page | 1 / 11 |
-| user switch ignored | changing the user in the dropdown does not reload the list | 1 / 11 |
-| buttons stay live | a control is not disabled during its request, so a double click sends two | 1 / 11 |
-| no empty state | an empty list renders as blank space with nothing said about it | 1 / 11 |
-| view state not announced | the open view is shown by styling only; `aria-pressed` never changes | 1 / 11 |
-| typed text discarded | a failed create clears the form | 1 / 11 |
+| label from the view | the archive control is labelled from the open view, not from its note | 1 / 12 |
+| no accessible name | the control keeps its visible text, loses the `aria-label` naming its note | 2 / 12 |
+| HTTP errors ignored | the response status is not checked, so a `500` renders as data | 1 / 12 |
+| change never sent | the page updates itself and never asks the server to store it | 4 / 12 |
+| change failure swallowed | a refused change leaves no message on the page | 1 / 12 |
+| user switch ignored | changing the user in the dropdown does not reload the list | 1 / 12 |
+| buttons stay live | a control is not disabled during its request, so a double click sends two | 1 / 12 |
+| no empty state | an empty list renders as blank space with nothing said about it | 1 / 12 |
+| view state not announced | the open view is shown by styling only; `aria-pressed` never changes | 1 / 12 |
+| fields named by placeholder only | the create form loses its labels, so each field is named by a placeholder | 1 / 12 |
+| typed text discarded | a failed create clears the form | 1 / 12 |
 
-**11 of 11 tests fail on at least one mutation, no survivors.** They did not on
+**12 of 12 tests fail on at least one mutation, no survivors.** They did not on
 the first run: three tests could not be killed by anything, and the
 `HTTP errors ignored` mutation killed nothing at all, because the failure test
 rejected the connection instead of answering an error status. That is recorded
 as mistake 7 in `docs/ai-mistakes.md`.
 
+The twelfth test and the `fields named by placeholder only` mutation were added
+after the review of this PR: the create form named its two fields with a
+placeholder and nothing else (mistake 8 in `docs/ai-mistakes.md`).
+
 What jsdom cannot measure — contrast and how large a control is — is checked in
 a real browser instead: `npm run check:a11y` drives headless Chrome through the
 archive flow, prints the accessibility tree at each step, and fails if a control
-has no accessible name, is smaller than 44x44 px, or misses `3:1` for a border
-or `4.5:1` for text in either colour scheme.
+has no accessible name, is named by its own placeholder, is smaller than
+44x44 px, or misses `3:1` for a border or `4.5:1` for text in either colour
+scheme.

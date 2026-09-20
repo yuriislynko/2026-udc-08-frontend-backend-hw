@@ -22,7 +22,7 @@ Guidance for an Agentic IDE working inside `app/`.
 npm install
 npm test              # vitest run (API, authorization and UI suites)
 npm run dev           # http://localhost:3080 (writes notes.db)
-npm run test:mutations  # break the app on purpose, check the authz suite notices
+npm run test:mutations  # break the app on purpose, check the authz and UI suites notice
 npm run check:a11y      # drive the UI in headless Chrome, dump its accessibility tree
 ```
 
