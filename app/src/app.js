@@ -10,15 +10,19 @@ const here = dirname(fileURLToPath(import.meta.url));
  * AFTER you know who the caller is.
  *
  * The caller identifies itself with the `x-user-id` header. Seeded users are
- * 1 (Оля) and 2 (Тарас).
+ * 1 (Оля) and 2 (Тарас). The header must name an existing user; an unknown id
+ * is not a caller, so it gets 401 rather than an empty list or a failed insert.
  */
-function currentUser(req, res, next) {
-  const id = Number(req.header("x-user-id"));
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(401).json({ error: "not authenticated" });
-  }
-  req.userId = id;
-  next();
+function currentUser(db) {
+  const userExists = db.prepare("SELECT 1 FROM users WHERE id = ?");
+  return (req, res, next) => {
+    const id = parseId(req.header("x-user-id") ?? "");
+    if (id === null || !userExists.get(id)) {
+      return res.status(401).json({ error: "not authenticated" });
+    }
+    req.userId = id;
+    next();
+  };
 }
 
 // Route ids are positive integers written as plain digits; anything else is a
@@ -40,7 +44,7 @@ export function createApp(db) {
   app.use(express.json());
   app.use(express.static(resolve(here, "../public")));
 
-  app.use("/api", currentUser);
+  app.use("/api", currentUser(db));
 
   // List the caller's own notes: active ones by default, archived ones with
   // ?archived=true.

@@ -19,6 +19,21 @@ describe("authentication", () => {
   it("rejects a request with no user header", async () => {
     await request(app).get("/api/notes").expect(401);
   });
+
+  it("rejects a user header that is not a plain positive integer", async () => {
+    for (const id of ["abc", "0", "-1", "1.5", "0x1", "1e0"]) {
+      await request(app).get("/api/notes").set("x-user-id", id).expect(401);
+    }
+  });
+
+  it("rejects a user id that does not exist", async () => {
+    await request(app).get("/api/notes").set("x-user-id", "99").expect(401);
+    await request(app)
+      .post("/api/notes")
+      .set("x-user-id", "99")
+      .send({ title: "Нова" })
+      .expect(401);
+  });
 });
 
 describe("GET /api/notes", () => {
@@ -160,6 +175,12 @@ describe("PATCH /api/notes/:id (archive)", () => {
     await asOlya(request(app).patch("/api/notes/3")).send({ archived: true }).expect(404);
     const taras = await asTaras(request(app).get("/api/notes")).expect(200);
     expect(taras.body.map((n) => n.id)).toEqual([3]);
+  });
+
+  it("keeps someone else's archived note out of the caller's archive", async () => {
+    await asTaras(request(app).patch("/api/notes/3")).send({ archived: true }).expect(200);
+    const archived = await asOlya(request(app).get("/api/notes?archived=true")).expect(200);
+    expect(archived.body).toEqual([]);
   });
 
   it("rejects an invalid archived filter on the list", async () => {
