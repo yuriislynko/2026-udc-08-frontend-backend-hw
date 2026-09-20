@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "node src/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:mutations": "node scripts/mutation-check.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
